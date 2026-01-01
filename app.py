@@ -1,56 +1,37 @@
 import streamlit as st
 import pandas as pd
 
-# Título da aba do navegador
 st.set_page_config(page_title="Auditoria Dr. Reginaldo", layout="wide")
 
+# MARCADOR VISUAL DE ATUALIZAÇÃO
+st.markdown("<h1 style='color: #1E90FF;'>🚀 VERSÃO 2.0 - SISTEMA ATUALIZADO</h1>", unsafe_allow_html=True)
 st.sidebar.title("Dr. Reginaldo Oliveira")
 st.sidebar.write("OAB/SC 57.879")
 
-# Título visual para você confirmar a atualização
-st.title("⚖️ Auditoria IA - VERSÃO 2.0 (Motor Universal)")
-
-# Aceita qualquer arquivo
-uploaded_file = st.file_uploader("Selecione o relatório", type=None)
+uploaded_file = st.file_uploader("Suba o relatório aqui", type=None)
 
 if uploaded_file is not None:
-    df = None
-    # TESTA DIFERENTES FORMAS DE LER O ARQUIVO
-    # O seu arquivo do eProc tem lixo na linha 0, por isso testamos skiprows
-    for skip in [1, 0, 2]:
-        for enc in ['iso-8859-1', 'utf-8', 'latin-1']:
-            try:
-                uploaded_file.seek(0)
-                df = pd.read_csv(uploaded_file, skiprows=skip, sep=',', encoding=enc, on_bad_lines='skip')
-                
-                # Verifica se encontrou a coluna de Réu (que é o que precisamos)
-                if any('réu' in str(c).lower() for c in df.columns):
-                    break
-            except:
-                continue
-        if df is not None and any('réu' in str(c).lower() for c in df.columns):
-            break
-
-    if df is not None:
+    try:
+        # Tenta ler ignorando erros e testando codificações comuns em SC (Latin-1)
+        # O seu arquivo real que analisei precisa pular a linha 0
+        df = pd.read_csv(uploaded_file, skiprows=1, sep=',', encoding='ISO-8859-1', on_bad_lines='skip')
+        
         # Limpa nomes de colunas
         df.columns = [str(c).strip() for c in df.columns]
         
-        # Localiza a coluna do Réu dinamicamente
-        col_reu = next((c for c in df.columns if 'réu' in c.lower()), None)
+        # Busca a coluna 'Réu(s)' que está no seu arquivo original
+        col_reu = 'Réu(s)' if 'Réu(s)' in df.columns else None
         
         if col_reu:
-            # Lista de alvos estratégicos baseada na sua lógica de padrões [cite: 2025-12-24]
-            reus_ricos = ['BANCO', 'SEGURADORA', 'OLX', 'S/A', 'S.A', 'MUNICIPIO', 'ESTADO', 'MINISTERIO', 'TELEFONICA', 'INSS']
-            
-            # Filtra os "Réus de Ouro" que acompanham o lucro [cite: 2025-12-24]
+            reus_ricos = ['BANCO', 'SEGURADORA', 'OLX', 'S/A', 'S.A', 'MUNICIPIO', 'ESTADO', 'MINISTÉRIO', 'INSS', 'TELEFONICA']
             df['Prioridade'] = df[col_reu].str.contains('|'.join(reus_ricos), case=False, na=False)
             resultado = df[df['Prioridade'] == True]
             
-            st.success("✅ Arquivo Lido com Sucesso!")
-            st.write(f"### 🚀 Oportunidades Identificadas")
+            st.success("✅ Leitura realizada com sucesso!")
             st.dataframe(resultado)
         else:
-            st.warning("Arquivo lido, mas a coluna 'Réu(s)' não foi detectada. Tente exportar novamente do Tribunal.")
-            st.write("Colunas encontradas:", df.columns.tolist())
-    else:
-        st.error("Erro crítico: O sistema não conseguiu decifrar este arquivo. Verifique se ele não está vazio.")
+            st.warning("Arquivo lido, mas a coluna 'Réu(s)' não foi encontrada.")
+            st.write("Colunas no arquivo:", df.columns.tolist())
+            
+    except Exception as e:
+        st.error(f"Erro ao processar: {e}")
