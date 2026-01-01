@@ -6,34 +6,41 @@ st.set_page_config(page_title="Sistema Dr. Reginaldo", layout="wide")
 st.sidebar.title("Consultoria de Dados")
 st.sidebar.write("Dr. Reginaldo Oliveira - OAB/SC 57.879")
 
-st.title("⚖️ Auditoria de Processos - Dr. Reginaldo")
+st.title("⚖️ Auditoria eProc - Dr. Reginaldo")
 
-# REMOVEMOS A RESTRIÇÃO DE EXTENSÃO: Agora ele aceita QUALQUER arquivo para você conseguir selecionar
-uploaded_file = st.file_uploader("Selecione o relatório do Tribunal", type=None)
+# Aceita qualquer arquivo para não travar na seleção
+uploaded_file = st.file_uploader("Suba o Relatório do eProc (CSV/XLS)", type=None)
 
 if uploaded_file is not None:
     try:
-        # Forçamos a leitura como texto/csv independente da extensão que o Windows/Mac mostre
-        df = pd.read_csv(uploaded_file, skiprows=1, sep=',', encoding='utf-8', on_bad_lines='skip')
+        # Tenta ler com a codificação padrão de tribunais brasileiros (ISO-8859-1)
+        # Pulamos a primeira linha que é apenas o título do relatório
+        df = pd.read_csv(uploaded_file, skiprows=1, sep=',', encoding='ISO-8859-1', on_bad_lines='skip')
         
-        # Filtro de "Réus de Ouro" focado no seu relatório real
-        reus_ricos = ['BANCO', 'SEGURADORA', 'OLX', 'S/A', 'S.A', 'MUNICIPIO', 'ESTADO', 'MINISTÉRIO PÚBLICO']
+        # Limpeza de nomes de colunas (remove espaços extras)
+        df.columns = [c.strip() for c in df.columns]
+
+        # Lista de "Réus de Ouro" (Acompanhamento de Sucesso)
+        reus_ricos = ['BANCO', 'SEGURADORA', 'OLX', 'S/A', 'S.A', 'MUNICIPIO', 'ESTADO', 'MINISTERIO', 'INSS', 'TELEFONICA']
         
-        # O sistema busca na coluna 'Réu(s)' que vi no seu arquivo
         if 'Réu(s)' in df.columns:
+            # Identifica os processos com réus solventes
             df['Prioridade'] = df['Réu(s)'].str.contains('|'.join(reus_ricos), case=False, na=False)
             resultado = df[df['Prioridade'] == True]
             
-            st.write("### 🚀 Oportunidades Identificadas")
+            st.write("### 🚀 Oportunidades Identificadas no eProc")
             if not resultado.empty:
-                st.dataframe(resultado[['Número Processo', 'Réu(s)', 'Localidade Judicial', 'Último Evento', 'Valor da Causa']])
-                st.success(f"Encontramos {len(resultado)} alvos estratégicos.")
+                # Mostra o que importa: Número, Réu, Evento e Valor
+                colunas_exibir = ['Número Processo', 'Réu(s)', 'Último Evento', 'Valor da Causa']
+                st.dataframe(resultado[colunas_exibir])
+                st.success(f"Encontramos {len(resultado)} processos estratégicos!")
             else:
-                st.warning("Nenhum réu de elite identificado. Veja a lista completa abaixo:")
+                st.warning("Nenhum réu da lista de elite detectado. Veja a lista completa:")
                 st.dataframe(df)
         else:
-            st.error("Coluna 'Réu(s)' não encontrada. O arquivo parece estar em formato diferente.")
-            st.write("Colunas detectadas:", df.columns.tolist())
+            st.error("Não achei a coluna 'Réu(s)'. Verifique se o arquivo foi exportado corretamente do eProc.")
+            st.write("Colunas encontradas no seu arquivo:", df.columns.tolist())
             
     except Exception as e:
-        st.error(f"Erro na leitura: {e}. Tente renomear o arquivo para apenas '.csv' no seu computador.")
+        st.error(f"Erro técnico de leitura: {e}")
+        st.info("Dica: No eProc, tente exportar como 'CSV' e certifique-se de que o arquivo não está aberto no Excel ao subir.")
