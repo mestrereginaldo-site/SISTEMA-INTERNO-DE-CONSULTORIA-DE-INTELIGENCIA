@@ -1,53 +1,56 @@
 import streamlit as st
 import pandas as pd
-import io
 
-st.set_page_config(page_title="Auditoria Jurídica Universal", layout="wide")
+# Título da aba do navegador
+st.set_page_config(page_title="Auditoria Dr. Reginaldo", layout="wide")
 
 st.sidebar.title("Dr. Reginaldo Oliveira")
 st.sidebar.write("OAB/SC 57.879")
 
-st.title("⚖️ Sistema de Auditoria Multi-Tribunais")
+# Título visual para você confirmar a atualização
+st.title("⚖️ Auditoria IA - VERSÃO 2.0 (Motor Universal)")
 
-uploaded_file = st.file_uploader("Selecione qualquer relatório de processos (CSV ou Excel)", type=None)
+# Aceita qualquer arquivo
+uploaded_file = st.file_uploader("Selecione o relatório", type=None)
 
 if uploaded_file is not None:
     df = None
-    # TENTATIVA AUTOMÁTICA DE LEITURA (Motor Universal)
-    for encoding in ['utf-8', 'iso-8859-1', 'latin-1']:
-        for separator in [',', ';', '\t']:
+    # TESTA DIFERENTES FORMAS DE LER O ARQUIVO
+    # O seu arquivo do eProc tem lixo na linha 0, por isso testamos skiprows
+    for skip in [1, 0, 2]:
+        for enc in ['iso-8859-1', 'utf-8', 'latin-1']:
             try:
                 uploaded_file.seek(0)
-                # O segredo: procuramos a linha onde os dados realmente começam
-                temp_df = pd.read_csv(uploaded_file, sep=separator, encoding=encoding, nrows=50, on_bad_lines='skip')
+                df = pd.read_csv(uploaded_file, skiprows=skip, sep=',', encoding=enc, on_bad_lines='skip')
                 
-                # Se achamos colunas comuns, este é o formato certo!
-                colunas_comuns = ['Número', 'Processo', 'Réu', 'Parte', 'Valor']
-                if any(c.lower() in str(temp_df.columns).lower() for c in colunas_comuns):
-                    uploaded_file.seek(0)
-                    df = pd.read_csv(uploaded_file, sep=separator, encoding=encoding, skiprows=1, on_bad_lines='skip')
+                # Verifica se encontrou a coluna de Réu (que é o que precisamos)
+                if any('réu' in str(c).lower() for c in df.columns):
                     break
             except:
                 continue
-        if df is not None: break
+        if df is not None and any('réu' in str(c).lower() for c in df.columns):
+            break
 
     if df is not None:
-        # Limpeza universal de colunas
+        # Limpa nomes de colunas
         df.columns = [str(c).strip() for c in df.columns]
         
-        # BUSCA INTELIGENTE: Procura a coluna do Réu, não importa o nome
-        col_reu = next((c for c in df.columns if 'réu' in c.lower() or 'parte passiva' in c.lower()), None)
+        # Localiza a coluna do Réu dinamicamente
+        col_reu = next((c for c in df.columns if 'réu' in c.lower()), None)
         
         if col_reu:
-            reus_ricos = ['BANCO', 'SEGURADORA', 'OLX', 'S/A', 'S.A', 'MUNICIPIO', 'ESTADO', 'TELEFONICA', 'INSS']
+            # Lista de alvos estratégicos baseada na sua lógica de padrões [cite: 2025-12-24]
+            reus_ricos = ['BANCO', 'SEGURADORA', 'OLX', 'S/A', 'S.A', 'MUNICIPIO', 'ESTADO', 'MINISTERIO', 'TELEFONICA', 'INSS']
+            
+            # Filtra os "Réus de Ouro" que acompanham o lucro [cite: 2025-12-24]
             df['Prioridade'] = df[col_reu].str.contains('|'.join(reus_ricos), case=False, na=False)
             resultado = df[df['Prioridade'] == True]
             
-            st.success("✅ Arquivo processado com sucesso!")
-            st.write(f"### 🚀 Oportunidades de Liquidez em: {uploaded_file.name}")
+            st.success("✅ Arquivo Lido com Sucesso!")
+            st.write(f"### 🚀 Oportunidades Identificadas")
             st.dataframe(resultado)
         else:
-            st.warning("Arquivo lido, mas não identifiquei a coluna de 'Réus'. Veja os dados:")
-            st.dataframe(df)
+            st.warning("Arquivo lido, mas a coluna 'Réu(s)' não foi detectada. Tente exportar novamente do Tribunal.")
+            st.write("Colunas encontradas:", df.columns.tolist())
     else:
-        st.error("Não foi possível ler este formato automaticamente. Tente salvar como CSV padrão no Excel.")
+        st.error("Erro crítico: O sistema não conseguiu decifrar este arquivo. Verifique se ele não está vazio.")
